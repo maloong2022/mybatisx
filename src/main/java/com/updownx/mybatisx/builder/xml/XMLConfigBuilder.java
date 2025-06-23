@@ -1,22 +1,26 @@
 package com.updownx.mybatisx.builder.xml;
 
 import com.updownx.mybatisx.builder.BaseBuilder;
+import com.updownx.mybatisx.datasource.DataSourceFactory;
 import com.updownx.mybatisx.io.Resources;
+import com.updownx.mybatisx.mapping.BoundSql;
+import com.updownx.mybatisx.mapping.Environment;
 import com.updownx.mybatisx.mapping.MappedStatement;
 import com.updownx.mybatisx.mapping.SqlCommandType;
 import com.updownx.mybatisx.session.Configuration;
 import java.io.Reader;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.updownx.mybatisx.transaction.TransactionFactory;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
 import org.xml.sax.InputSource;
+
+import javax.sql.DataSource;
 
 /** XML配置构建器，建造者模式，继承 BaseBuilder */
 public class XMLConfigBuilder extends BaseBuilder {
@@ -38,12 +42,60 @@ public class XMLConfigBuilder extends BaseBuilder {
   /** 解析配置：类型别名，插件，对象工厂，对象包装工厂，设置，环境，类型转换，映射器 */
   public Configuration parse() {
     try {
+      // 环境
+      environmentsElement(root.element("environments"));
+
       // 解析映射器
       mapperElement(root.element("mappers"));
     } catch (Exception e) {
       throw new RuntimeException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
     }
     return configuration;
+  }
+
+  /**
+   * <environments default="development"> <environment id="development"> <transactionManager
+   * type="JDBC"> <property name="..." value="..."/> </transactionManager> <dataSource
+   * type="POOLED"> <property name="driver" value="${driver}"/> <property name="url"
+   * value="${url}"/> <property name="username" value="${username}"/> <property name="password"
+   * value="${password}"/> </dataSource> </environment> </environments>
+   */
+  private void environmentsElement(Element context) throws Exception {
+    String environment = context.attributeValue("default");
+
+    List<Element> environmentList = context.elements("environment");
+    for (Element e : environmentList) {
+      String id = e.attributeValue("id");
+      if (environment.equals(id)) {
+        // 事务管理器
+        TransactionFactory txFactory =
+            (TransactionFactory)
+                typeAliasRegistry
+                    .resolveAlias(e.element("transactionManager").attributeValue("type"))
+                    .newInstance();
+
+        // 数据源
+        Element dataSourceElement = e.element("dataSource");
+        DataSourceFactory dataSourceFactory =
+            (DataSourceFactory)
+                typeAliasRegistry
+                    .resolveAlias(dataSourceElement.attributeValue("type"))
+                    .newInstance();
+        List<Element> propertyList = dataSourceElement.elements("property");
+        Properties props = new Properties();
+        for (Element property : propertyList) {
+          props.setProperty(property.attributeValue("name"), property.attributeValue("value"));
+        }
+        dataSourceFactory.setProperties(props);
+        DataSource dataSource = dataSourceFactory.getDataSource();
+
+        // 构建环境
+        Environment.Builder environmentBuilder =
+            new Environment.Builder(id).transactionFactory(txFactory).dataSource(dataSource);
+
+        configuration.setEnvironment(environmentBuilder.build());
+      }
+    }
   }
 
   private void mapperElement(Element mappers) throws Exception {
@@ -80,10 +132,11 @@ public class XMLConfigBuilder extends BaseBuilder {
         String nodeName = node.getName();
         SqlCommandType sqlCommandType =
             SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));
+
+        BoundSql boundSql = new BoundSql(sql, parameter, parameterType, resultType);
+
         MappedStatement mappedStatement =
-            new MappedStatement.Builder(
-                    configuration, msId, sqlCommandType, parameterType, resultType, sql, parameter)
-                .build();
+            new MappedStatement.Builder(configuration, msId, sqlCommandType, boundSql).build();
         // 添加解析 SQL
         configuration.addMappedStatement(mappedStatement);
       }
