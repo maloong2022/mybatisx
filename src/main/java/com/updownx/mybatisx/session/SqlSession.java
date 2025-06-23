@@ -1,5 +1,6 @@
 package com.updownx.mybatisx.session;
 
+/** 用来执行SQL，获取映射器，管理事务。 * PS：通常情况下，我们在应用程序中使用的Mybatis的API就是这个接口定义的方法。 */
 public interface SqlSession {
 
   /**
@@ -21,6 +22,13 @@ public interface SqlSession {
    * @return Mapped object
    */
   <T> T selectOne(String statement, Object parameter);
+
+  /**
+   * Retrieves current configuration 得到配置
+   *
+   * @return Configuration
+   */
+  Configuration getConfiguration();
 
   /**
    * Retrieves a mapper. 得到映射器，这个巧妙的使用了泛型，使得类型安全

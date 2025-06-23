@@ -1,14 +1,22 @@
 package com.updownx.mybatisx.binding;
 
 import cn.hutool.core.lang.ClassScanner;
+import com.updownx.mybatisx.session.Configuration;
 import com.updownx.mybatisx.session.SqlSession;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * 映射器注册机
+ */
 public class MapperRegistry {
   // 将已添加的映射器代理加入到 HashMap
   private final Map<Class<?>, MapperProxyFactory<?>> knownMappers = new HashMap();
+  private final Configuration config;
+  public MapperRegistry(Configuration config) {
+    this.config = config;
+  }
 
   public <T> T getMapper(Class<T> type, SqlSession sqlSession) {
     final MapperProxyFactory<T> mapperProxyFactory = (MapperProxyFactory<T>) knownMappers.get(type);
@@ -34,7 +42,7 @@ public class MapperRegistry {
     }
   }
 
-  private <T> boolean hasMapper(Class<T> type) {
+  public <T> boolean hasMapper(Class<T> type) {
     return knownMappers.containsKey(type);
   }
 
