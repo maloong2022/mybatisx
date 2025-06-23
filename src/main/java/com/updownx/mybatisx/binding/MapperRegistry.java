@@ -1,7 +1,7 @@
 package com.updownx.mybatisx.binding;
 
+import cn.hutool.core.lang.ClassScanner;
 import com.updownx.mybatisx.session.SqlSession;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -35,13 +35,13 @@ public class MapperRegistry {
   }
 
   private <T> boolean hasMapper(Class<T> type) {
-    return false;
+    return knownMappers.containsKey(type);
   }
 
   public void addMappers(String packageName) {
-//    Set<Class<?>> mapperSet = ClassScanner.scanPackage(packageName);
-//    for (Class<?> mapperInterface : mapperSet) {
-//      addMapper(mapperInterface);
-//    }
+    Set<Class<?>> mapperSet = ClassScanner.scanPackage(packageName);
+    for (Class<?> mapperInterface : mapperSet) {
+      addMapper(mapperInterface);
+    }
   }
 }
